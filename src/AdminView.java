@@ -56,9 +56,9 @@ public class AdminView {
         while (option != 0) {
             try{
                 System.out.println("\nInterface de Administrador");
+                System.out.println("0 - Voltar ao Menu Principal");
                 System.out.println("1 - Cadastrar Médico");
                 System.out.println("2 - Cadastrar Paciente");
-                System.out.println("\n0 - Voltar ao Menu Principal");
                 option = scanner.nextInt();
 
                 switch (option) {

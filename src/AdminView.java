@@ -1,6 +1,8 @@
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Scanner;
 
 public class AdminView {
@@ -37,9 +39,9 @@ public class AdminView {
     private static boolean login() {
         Scanner scanner = new Scanner(System.in);
 
-        System.out.println("Digite o usuário: ");
+        System.out.print("Digite o usuário: ");
         String username = scanner.nextLine();
-        System.out.println("Digite a senha: ");
+        System.out.print("Digite a senha: ");
         String password = scanner.nextLine();
 
         if(username.equals("admin") && password.equals("admin1234")){
@@ -104,4 +106,71 @@ public class AdminView {
 
         System.out.println("\nCadastro efetuado com sucesso!");
     }
+
+    public static void updatePatientsFromCSV(List<Patient> currentPatients, String filename) {
+        try (Scanner scanner = new Scanner(new File(filename))) {
+            if (scanner.hasNextLine()) scanner.nextLine();
+
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine().trim();
+                if (line.isEmpty()) continue;
+
+                String[] parts = line.split(",");
+                if (parts.length < 2) continue;
+
+                String name = parts[0].trim();
+                String cpf = parts[1].trim();
+
+                // Verifica se já existe um paciente com esse CPF
+                boolean exists = false;
+                for (Patient p : currentPatients) {
+                    if (p.getCpf().equals(cpf)) {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                // Se não existe, cria novo e adiciona à lista
+                if (!exists) {
+                    currentPatients.add(new Patient(name, cpf));
+                }
+            }
+
+        } catch (Exception e) {
+            System.out.println("Erro ao atualizar lista de pacientes: " + e.getMessage());
+        }
+    }
+
+    // TODO: Descomentar quando tiver classe de Doctor
+//    public static void updateDoctorsFromCSV(List<Doctor> currentDoctors, String filename) {
+//        try (Scanner scanner = new Scanner(new File(filename))) {
+//            if (scanner.hasNextLine()) scanner.nextLine();
+//
+//            while (scanner.hasNextLine()) {
+//                String line = scanner.nextLine().trim();
+//                if (line.isEmpty()) continue;
+//
+//                String[] parts = line.split(",");
+//                if (parts.length < 2) continue;
+//
+//                String name = parts[0].trim();
+//                int code = Integer.parseInt(parts[1].trim());
+//
+//                boolean exists = false;
+//                for (Doctor d : currentDoctors) {
+//                    if (d.getCode() == code) {
+//                        exists = true;
+//                        break;
+//                    }
+//                }
+//
+//                if (!exists) {
+//                    currentDoctors.add(new Doctor(name, code));
+//                }
+//            }
+//
+//        } catch (Exception e) {
+//            System.out.println("Erro ao atualizar lista de médicos: " + e.getMessage());
+//        }
+//    }
 }

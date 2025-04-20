@@ -20,12 +20,14 @@ public class Main {
                 System.out.println("0 - Administrador");
                 System.out.println("1 - Paciente");
                 System.out.println("2 - Médico");
+                System.out.println("\n-1 - Sair");
                 option = scanner.nextInt();
 
                 switch (option){
                     case 0:
                         AdminView.checkOptions(true);
-                        //TODO: Atualizar as listas de médico e paciente
+                        AdminView.updatePatientsFromCSV(patients, "patients.csv");
+//                        AdminView.updateDoctorsFromCSV(doctors, "doctors.csv"); TODO: Descomentar quando tiver classe de Doctor
                         break;
                     case 1: PatientView.checkOptions(patients, true); break;
 //                    case 2: DoctorView.checkOptions(doctors, true); break; TODO: descomentar quando a function estiver ok

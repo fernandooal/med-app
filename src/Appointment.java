@@ -8,6 +8,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Scanner;
 
@@ -166,6 +168,16 @@ public class Appointment {
             }
         }
         return result;
+    }
+
+    // find all doctors for a patient through appointments
+    public static List<String> findAllDoctorsForPatient(List<Appointment> allApointments, String patientCPF) {
+        List<Appointment> patientAppointments = filterByPatient(allApointments, patientCPF);
+        Set<String> uniqueDoctorCRMs = new HashSet<>();
+        for (Appointment appointment : patientAppointments) {
+            uniqueDoctorCRMs.add(appointment.getDoctorCRM());
+        }
+        return new ArrayList<>(uniqueDoctorCRMs);
     }
 
     // filter appointments by specific period

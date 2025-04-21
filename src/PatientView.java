@@ -6,6 +6,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 
 /**
  * Classe responsável pela interface com o usuário para a visão do paciente.
@@ -74,22 +77,6 @@ public class PatientView {
     }
 
     /**
-     * Busca um paciente pelo CPF na lista de pacientes
-     *
-     * @param patients Lista de pacientes
-     * @param cpf CPF a ser buscado
-     * @return Paciente encontrado ou null se não encontrado
-     */
-    private static Patient findPatientByCPF(List<Patient> patients, String cpf) {
-        for (Patient p : patients) {
-            if (p.getCpf().equals(cpf)) {
-                return p;
-            }
-        }
-        return null;
-    }
-
-    /**
      * Exibe o menu principal para o paciente e processa a opção escolhida
      *
      * @param patient Paciente logado
@@ -107,6 +94,8 @@ public class PatientView {
                 System.out.println("3 - Ver consultas realizadas");
                 System.out.println("4 - Remarcar consulta");
                 System.out.println("5 - Cancelar consulta");
+                System.out.println("6 - Ver todos os médicos do paciente");
+                System.out.println("7 - Ver consultas realizadas com um médico específico");
                 System.out.println("0 - Sair");
                 System.out.print("\nEscolha uma opção: ");
 
@@ -117,19 +106,25 @@ public class PatientView {
                         continueMenu = false;
                         break;
                     case 1:
-                        scheduleNewAppointment(patient, allAppointments, scanner);
+                        Appointment.scheduleNewAppointment(patient, allAppointments, scanner);
                         break;
                     case 2:
-                        viewFutureAppointments(patient, allAppointments, scanner);
+                        Appointment.viewFutureAppointments(patient, allAppointments, scanner);
                         break;
                     case 3:
-                        viewPastAppointments(patient, scanner);
+                        Appointment.viewPastAppointments(patient, scanner);
                         break;
                     case 4:
-                        rescheduleAppointment(patient, allAppointments, scanner);
+                        Appointment.rescheduleAppointment(patient, allAppointments, scanner);
                         break;
                     case 5:
-                        cancelAppointment(patient, allAppointments, scanner);
+                        Appointment.cancelAppointment(patient, allAppointments, scanner);
+                        break;
+                    case 6:
+                        viewAllPatientDoctors(patient, allAppointments, scanner);
+                        break;
+                    case 7:
+                        viewPatientAppointmentsWithDoctor(patient, allAppointments, scanner);
                         break;
                     default:
                         System.out.println("Opção inválida!");
@@ -145,473 +140,270 @@ public class PatientView {
     }
 
     /**
-     * Agenda uma nova consulta para o paciente
+     * Exibe todos os médicos do paciente (médicos que ele já se consultou ou tem consulta agendada)
      *
-     * @param patient Paciente
-     * @param allAppointments Todas as consultas
-     * @param scanner Scanner para leitura
+     * @param patient Paciente atual
+     * @param allAppointments Todas as consultas do sistema
+     * @param scanner Scanner para leitura de entrada do usuário
      */
-    private static void scheduleNewAppointment(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
-        try {
-            // Carregar a lista de médicos
-            List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
+    private static void viewAllPatientDoctors(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
+        // Lista para armazenar os CRMs únicos dos médicos
+        List<String> doctorCRMs = new ArrayList<>();
 
-            if (doctors.isEmpty()) {
-                System.out.println("Não há médicos cadastrados no sistema.");
-                return;
-            }
-
-            // Exibir lista de médicos
-            System.out.println("\nSelecione o médico para a consulta:");
-            for (int i = 0; i < doctors.size(); i++) {
-                System.out.println((i + 1) + " - " + doctors.get(i).getName() + " (CRM: " + doctors.get(i).getCode() + ")");
-            }
-
-            System.out.print("\nDigite o número correspondente ao médico: ");
-            int doctorIndex = Integer.parseInt(scanner.nextLine()) - 1;
-
-            if (doctorIndex < 0 || doctorIndex >= doctors.size()) {
-                System.out.println("Seleção inválida.");
-                return;
-            }
-
-            // Obter data da consulta
-            System.out.print("Digite a data da consulta (yyyy-MM-dd): ");
-            String dateStr = scanner.nextLine();
-
-            // Obter hora da consulta
-            System.out.print("Digite o horário da consulta (HH:mm): ");
-            String timeStr = scanner.nextLine();
-
-            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
-
-            LocalDate appointmentDate = LocalDate.parse(dateStr, dateFormatter);
-            LocalTime appointmentTime = LocalTime.parse(timeStr, timeFormatter);
-
-            // Verificar se a data é no futuro
-            if (appointmentDate.isBefore(LocalDate.now())) {
-                System.out.println("A data da consulta deve ser futura.");
-                return;
-            }
-
-            Doctor selectedDoctor = doctors.get(doctorIndex);
-
-            // Verificar se já existe consulta no mesmo horário para o médico
-            boolean conflictFound = false;
-            for (Appointment app : allAppointments) {
-                if (app.getDoctorCRM().equals(selectedDoctor.getCode()) &&
-                        app.getDate().equals(appointmentDate) &&
-                        app.getTime().equals(appointmentTime) &&
-                        app.getStatus() == AppointmentStatus.PENDING) {
-                    conflictFound = true;
-                    break;
-                }
-            }
-
-            if (conflictFound) {
-                System.out.println("Já existe uma consulta agendada com este médico neste horário.");
-                return;
-            }
-
-            // Criar e salvar a nova consulta
-            Appointment appointment = new Appointment(
-                    appointmentDate,
-                    appointmentTime,
-                    patient.getCpf(),
-                    selectedDoctor.getCode(),
-                    AppointmentStatus.PENDING
-            );
-
-            appointment.saveToCSVFile(APPOINTMENT_CSV, true);
-
-            // Adicionar a consulta à lista do paciente
-            patient.addAppointment(appointment);
-
-            // Adicionar a consulta à lista geral
-            allAppointments.add(appointment);
-
-            System.out.println("\nConsulta agendada com sucesso!");
-            System.out.println("Médico: " + selectedDoctor.getName());
-            System.out.println("Data e hora: " + appointment.getFormattedDateTime());
-
-        } catch (DateTimeParseException e) {
-            System.out.println("Formato de data ou hora inválido: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Erro: " + e.getMessage());
-            e.printStackTrace(System.err);
-
-        }
-    }
-
-    /**
-     * Exibe as consultas futuras (agendadas) do paciente com opções de gerenciamento
-     *
-     * @param patient Paciente
-     * @param allAppointments Todas as consultas
-     * @param scanner Scanner para leitura
-     */
-    private static void viewFutureAppointments(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
-        List<Appointment> futureAppointments = new ArrayList<>();
-
-        // Filtrar consultas pendentes (futuras)
+        // Extrair CRMs únicos de todas as consultas do paciente
         for (Appointment app : patient.getAppointmentList()) {
-            if (app.getStatus() == AppointmentStatus.PENDING) {
-                futureAppointments.add(app);
+            String crm = app.getDoctorCRM();
+            if (!doctorCRMs.contains(crm)) {
+                doctorCRMs.add(crm);
             }
         }
 
-        if (futureAppointments.isEmpty()) {
-            System.out.println("Você não tem consultas agendadas.");
+        if (doctorCRMs.isEmpty()) {
+            System.out.println("Você ainda não tem nenhuma consulta com médicos.");
             return;
         }
 
-        // Ordenar por data/hora
-        futureAppointments.sort(Comparator.comparing(Appointment::getDate)
-                .thenComparing(Appointment::getTime));
+        System.out.println("\nMédicos que você já consultou ou tem consulta agendada:");
 
-        System.out.println("\nSuas consultas agendadas:");
+        // Carregar lista de médicos para buscar os nomes
+        List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
 
-        for (int i = 0; i < futureAppointments.size(); i++) {
-            Appointment app = futureAppointments.get(i);
-            System.out.println((i + 1) + " - " + app.getFormattedDateTime() + " (Médico: " + getDoctorName(app.getDoctorCRM()) + ")");
-        }
-
-        System.out.println("\nDeseja gerenciar alguma consulta? (s/n): ");
-        String response = scanner.nextLine();
-
-        if (response.equalsIgnoreCase("s")) {
-            System.out.print("Digite o número da consulta: ");
-            int selection = Integer.parseInt(scanner.nextLine()) - 1;
-
-            if (selection < 0 || selection >= futureAppointments.size()) {
-                System.out.println("Seleção inválida.");
-                return;
-            }
-
-            Appointment selectedAppointment = futureAppointments.get(selection);
-
-            System.out.println("\nO que deseja fazer com esta consulta?");
-            System.out.println("1 - Confirmar presença");
-            System.out.println("2 - Cancelar consulta");
-            System.out.println("3 - Remarcar consulta");
-            System.out.println("0 - Voltar");
-
-            int action = Integer.parseInt(scanner.nextLine());
-
-            switch (action) {
-                case 0:
-                    return;
-                case 1:
-                    System.out.println("Presença confirmada para a consulta em " + selectedAppointment.getFormattedDateTime());
-                    break;
-                case 2:
-                    doCancelAppointment(selectedAppointment, allAppointments);
-                    break;
-                case 3:
-                    doRescheduleAppointment(selectedAppointment, patient, allAppointments, scanner);
-                    break;
-                default:
-                    System.out.println("Opção inválida.");
-            }
+        for (int i = 0; i < doctorCRMs.size(); i++) {
+            String crm = doctorCRMs.get(i);
+            String doctorName = DoctorView.getDoctorName(doctors, crm);
+            System.out.println((i + 1) + " - " + doctorName + " (CRM: " + crm + ")");
         }
     }
 
     /**
-     * Exibe as consultas já realizadas pelo paciente
+     * Exibe todas as consultas realizadas pelo paciente com um médico específico
      *
-     * @param patient Paciente
-     * @param scanner Scanner para leitura
+     * @param patient Paciente atual
+     * @param allAppointments Todas as consultas do sistema
+     * @param scanner Scanner para leitura de entrada do usuário
      */
-    private static void viewPastAppointments(Patient patient, Scanner scanner) {
-        List<Appointment> pastAppointments = new ArrayList<>();
+    private static void viewPatientAppointmentsWithDoctor(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
+        // Lista para armazenar os CRMs únicos dos médicos
+        List<String> doctorCRMs = new ArrayList<>();
 
-        // Filtrar consultas realizadas
+        // Extrair CRMs únicos de todas as consultas do paciente
         for (Appointment app : patient.getAppointmentList()) {
-            if (app.getStatus() == AppointmentStatus.COMPLETED ||
-                    (app.hasOccurred() && app.getStatus() != AppointmentStatus.CANCELLED)) {
-                pastAppointments.add(app);
+            String crm = app.getDoctorCRM();
+            if (!doctorCRMs.contains(crm)) {
+                doctorCRMs.add(crm);
             }
         }
 
-        if (pastAppointments.isEmpty()) {
-            System.out.println("Você não tem consultas realizadas.");
+        if (doctorCRMs.isEmpty()) {
+            System.out.println("Você ainda não tem nenhuma consulta com médicos.");
+            return;
+        }
+
+        System.out.println("\nSelecione o médico para ver as consultas realizadas:");
+
+        // Carregar lista de médicos para buscar os nomes
+        List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
+
+        for (int i = 0; i < doctorCRMs.size(); i++) {
+            String crm = doctorCRMs.get(i);
+            String doctorName = DoctorView.getDoctorName(doctors, crm);
+            System.out.println((i + 1) + " - " + doctorName + " (CRM: " + crm + ")");
+        }
+
+        System.out.print("\nDigite o número do médico (0 para voltar): ");
+        int selection = Integer.parseInt(scanner.nextLine());
+
+        if (selection <= 0 || selection > doctorCRMs.size()) {
+            return;
+        }
+
+        String selectedCRM = doctorCRMs.get(selection - 1);
+
+        // Filtrar apenas consultas realizadas com o médico selecionado
+        List<Appointment> pastAppointmentsWithDoctor = new ArrayList<>();
+        for (Appointment app : patient.getAppointmentList()) {
+            if (app.getDoctorCRM().equals(selectedCRM) &&
+                    (app.getStatus() == AppointmentStatus.COMPLETED ||
+                            (app.hasOccurred() && app.getStatus() != AppointmentStatus.CANCELLED))) {
+
+                pastAppointmentsWithDoctor.add(app);
+            }
+        }
+
+        if (pastAppointmentsWithDoctor.isEmpty()) {
+            System.out.println("Você não tem consultas realizadas com este médico.");
             return;
         }
 
         // Ordenar por data/hora (mais recente primeiro)
-        pastAppointments.sort(Comparator.comparing(Appointment::getDate)
+        pastAppointmentsWithDoctor.sort(Comparator.comparing(Appointment::getDate)
                 .thenComparing(Appointment::getTime).reversed());
 
-        System.out.println("\nSuas consultas realizadas:");
-        UIUtils.paginateList(pastAppointments, 5, scanner);
+        String doctorName = DoctorView.getDoctorName(doctors, selectedCRM);
+        System.out.println("\nConsultas realizadas com " + doctorName + ":");
+
+        for (Appointment app : pastAppointmentsWithDoctor) {
+            System.out.println("- " + app.getFormattedDateTime());
+        }
     }
 
     /**
-     * Interface para remarcar uma consulta existente
+     * Busca um paciente pelo CPF
      *
-     * @param patient Paciente
-     * @param allAppointments Todas as consultas
-     * @param scanner Scanner para leitura
+     * @param allPatients Lista de todos os pacientes
+     * @param cpf CPF a ser buscado
+     * @return Paciente encontrado ou null se não encontrado
      */
-    private static void rescheduleAppointment(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
-        List<Appointment> futureAppointments = new ArrayList<>();
+    public static Patient findPatientByCPF(List<Patient> allPatients, String cpf) {
+        for (Patient p : allPatients) {
+            if (p.getCpf().equals(cpf)) {
+                return p;
+            }
+        }
+        return null;
+    }
 
-        // Filtrar consultas pendentes (futuras)
-        for (Appointment app : patient.getAppointmentList()) {
-            if (app.getStatus() == AppointmentStatus.PENDING) {
-                futureAppointments.add(app);
+    /**
+     * Busca um paciente pelo nome
+     *
+     * @param allPatients Lista de todos os pacientes
+     * @param scanner Scanner para leitura de entrada
+     * @return Paciente selecionado ou null se cancelado
+     */
+    public static Patient findPatientByName(List<Patient> allPatients, Scanner scanner) {
+        System.out.print("Digite o nome do paciente (ou parte do nome): ");
+        String searchName = scanner.nextLine().trim().toLowerCase();
+
+        List<Patient> matches = new ArrayList<>();
+        for (Patient p : allPatients) {
+            if (p.getName().toLowerCase().contains(searchName)) {
+                matches.add(p);
             }
         }
 
-        if (futureAppointments.isEmpty()) {
-            System.out.println("Você não tem consultas agendadas para remarcar.");
-            return;
+        if (matches.isEmpty()) {
+            System.out.println("Nenhum paciente encontrado com esse nome.");
+            return null;
         }
 
-        // Ordenar por data/hora
-        futureAppointments.sort(Comparator.comparing(Appointment::getDate)
-                .thenComparing(Appointment::getTime));
-
-        System.out.println("\nSelecione a consulta que deseja remarcar:");
-
-        for (int i = 0; i < futureAppointments.size(); i++) {
-            Appointment app = futureAppointments.get(i);
-            System.out.println((i + 1) + " - " + app.getFormattedDateTime() + " (Médico: " + getDoctorName(app.getDoctorCRM()) + ")");
+        System.out.println("\nPacientes encontrados:");
+        for (int i = 0; i < matches.size(); i++) {
+            Patient p = matches.get(i);
+            System.out.println((i + 1) + " - " + p.getName() + " (CPF: " + UIUtils.formatCPF(p.getCpf()) + ")");
         }
 
-        System.out.print("\nDigite o número da consulta (0 para voltar): ");
-        int selection = Integer.parseInt(scanner.nextLine()) - 1;
-
-        if (selection == -1) {
-            return;
-        }
-
-        if (selection < 0 || selection >= futureAppointments.size()) {
-            System.out.println("Seleção inválida.");
-            return;
-        }
-
-        Appointment selectedAppointment = futureAppointments.get(selection);
-        doRescheduleAppointment(selectedAppointment, patient, allAppointments, scanner);
-    }
-
-    /**
-     * Executa a remarcação de uma consulta
-     *
-     * @param appointment Consulta a ser remarcada
-     * @param patient Paciente dono da consulta
-     * @param allAppointments Todas as consultas
-     * @param scanner Scanner para leitura
-     */
-    private static void doRescheduleAppointment(Appointment appointment, Patient patient, List<Appointment> allAppointments, Scanner scanner) {
+        System.out.print("\nDigite o número do paciente (0 para voltar): ");
         try {
-            // Obter nova data
-            System.out.print("Digite a nova data da consulta (yyyy-MM-dd): ");
-            String dateStr = scanner.nextLine();
+            int selection = Integer.parseInt(scanner.nextLine());
 
-            // Obter nova hora
-            System.out.print("Digite o novo horário da consulta (HH:mm): ");
-            String timeStr = scanner.nextLine();
-
-            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
-
-            LocalDate newDate = LocalDate.parse(dateStr, dateFormatter);
-            LocalTime newTime = LocalTime.parse(timeStr, timeFormatter);
-
-            // Verificar se a data é no futuro
-            if (newDate.isBefore(LocalDate.now())) {
-                System.out.println("A data da consulta deve ser futura.");
-                return;
+            if (selection == 0) {
+                return null;
             }
 
-            // Verificar se já existe consulta no mesmo horário para o médico
-            boolean conflictFound = false;
-            for (Appointment app : allAppointments) {
-                if (app != appointment &&
-                        app.getDoctorCRM().equals(appointment.getDoctorCRM()) &&
-                        app.getDate().equals(newDate) &&
-                        app.getTime().equals(newTime) &&
-                        app.getStatus() == AppointmentStatus.PENDING) {
-                    conflictFound = true;
-                    break;
-                }
+            if (selection < 1 || selection > matches.size()) {
+                System.out.println("Seleção inválida.");
+                return null;
             }
 
-            if (conflictFound) {
-                System.out.println("Já existe uma consulta agendada com este médico neste horário.");
-                return;
-            }
+            return matches.get(selection - 1);
 
-            // Remover a consulta antiga
-            int indexToRemove = -1;
-            for (int i = 0; i < allAppointments.size(); i++) {
-                Appointment app = allAppointments.get(i);
-                if (app.getDate().equals(appointment.getDate()) &&
-                        app.getTime().equals(appointment.getTime()) &&
-                        app.getPatientCPF().equals(appointment.getPatientCPF()) &&
-                        app.getDoctorCRM().equals(appointment.getDoctorCRM())) {
+        } catch (NumberFormatException e) {
+            System.out.println("Entrada inválida. Digite um número.");
+            return null;
+        }
+    }
 
-                    indexToRemove = i;
-                    break;
-                }
-            }
+    /**
+     * Seleciona um paciente existente no sistema
+     *
+     * @param allPatients Lista de todos os pacientes
+     * @param scanner Scanner para leitura de entrada
+     * @return Paciente selecionado ou null se cancelado
+     */
+    public static Patient selectExistingPatient(List<Patient> allPatients, Scanner scanner) {
+        System.out.println("\nSelecione como deseja buscar o paciente:");
+        System.out.println("1 - Por CPF");
+        System.out.println("2 - Por nome");
+        System.out.println("0 - Voltar");
+        System.out.print("Escolha uma opção: ");
 
-            if (indexToRemove != -1) {
-                // Criar nova consulta com os mesmos dados, exceto data e hora
-                Appointment newAppointment = new Appointment(
-                        newDate,
-                        newTime,
-                        appointment.getPatientCPF(),
-                        appointment.getDoctorCRM(),
-                        AppointmentStatus.PENDING
-                );
+        try {
+            int option = Integer.parseInt(scanner.nextLine());
 
-                // Substituir na lista geral
-                allAppointments.set(indexToRemove, newAppointment);
+            switch (option) {
+                case 0:
+                    return null;
+                case 1:
+                    System.out.print("Digite o CPF do paciente (somente números): ");
+                    String cpf = scanner.nextLine().trim();
 
-                // Salvar a lista atualizada
-                Appointment.saveAppointmentsToCSV(allAppointments, APPOINTMENT_CSV);
-
-                // Substituir na lista do paciente
-                for (int i = 0; i < patient.getAppointmentList().size(); i++) {
-                    Appointment app = patient.getAppointmentList().get(i);
-                    if (app.getDate().equals(appointment.getDate()) &&
-                            app.getTime().equals(appointment.getTime()) &&
-                            app.getDoctorCRM().equals(appointment.getDoctorCRM())) {
-
-                        // Substituir na lista de consultas do paciente
-                        patient.getAppointmentList().set(i, newAppointment);
-                        break;
+                    if (!cpf.matches("\\d{11}")) {
+                        System.out.println("CPF inválido. Deve conter exatamente 11 dígitos.");
+                        return null;
                     }
-                }
 
-                System.out.println("Consulta remarcada com sucesso!");
-                System.out.println("Nova data e hora: " + newAppointment.getFormattedDateTime());
-            } else {
-                System.out.println("Erro: Consulta não encontrada na lista.");
+                    Patient p = findPatientByCPF(allPatients, cpf);
+                    if (p != null) {
+                        System.out.println("Paciente encontrado: " + p.getName());
+                    } else {
+                        System.out.println("Paciente não encontrado com o CPF informado.");
+                    }
+                    return p;
+                case 2:
+                    return findPatientByName(allPatients, scanner);
+                default:
+                    System.out.println("Opção inválida!");
+                    return null;
             }
-
-        } catch (DateTimeParseException e) {
-            System.out.println("Formato de data ou hora inválido: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Erro: " + e.getMessage());
-            e.printStackTrace(System.err);
-
+        } catch (NumberFormatException e) {
+            System.out.println("Entrada inválida. Digite um número.");
+            return null;
         }
     }
 
     /**
-     * Interface para cancelar uma consulta existente
+     * Cadastra um novo paciente no sistema
      *
-     * @param patient Paciente
-     * @param allAppointments Todas as consultas
-     * @param scanner Scanner para leitura
+     * @param scanner Scanner para leitura de entrada
+     * @return Novo paciente cadastrado ou null se cancelado
      */
-    private static void cancelAppointment(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
-        List<Appointment> futureAppointments = new ArrayList<>();
+    public static Patient registerNewPatient(Scanner scanner) {
+        System.out.println("\n=== CADASTRAR NOVO PACIENTE ===");
 
-        // Filtrar consultas pendentes (futuras)
-        for (Appointment app : patient.getAppointmentList()) {
-            if (app.getStatus() == AppointmentStatus.PENDING) {
-                futureAppointments.add(app);
+        System.out.print("Digite o nome do paciente: ");
+        String name = scanner.nextLine().trim();
+
+        if (name.isEmpty()) {
+            System.out.println("Nome não pode ser vazio.");
+            return null;
+        }
+
+        System.out.print("Digite o CPF do paciente (somente números): ");
+        String cpf = scanner.nextLine().trim();
+
+        if (!cpf.matches("\\d{11}")) {
+            System.out.println("CPF inválido. Deve conter exatamente 11 dígitos.");
+            return null;
+        }
+
+        // Verificar se o paciente já existe
+        List<Patient> existingPatients = Patient.loadFromCSV("patients.csv");
+        for (Patient p : existingPatients) {
+            if (p.getCpf().equals(cpf)) {
+                System.out.println("Já existe um paciente com este CPF: " + p.getName());
+                return p;
             }
         }
 
-        if (futureAppointments.isEmpty()) {
-            System.out.println("Você não tem consultas agendadas para cancelar.");
-            return;
+        // Salvar no arquivo CSV
+        try (PrintWriter writer = new PrintWriter(new FileWriter("patients.csv", true))) {
+            writer.println(name + "," + cpf);
+        } catch (IOException error) {
+            System.out.println("Erro ao salvar no arquivo CSV: " + error.getMessage());
+            return null;
         }
 
-        // Ordenar por data/hora
-        futureAppointments.sort(Comparator.comparing(Appointment::getDate)
-                .thenComparing(Appointment::getTime));
-
-        System.out.println("\nSelecione a consulta que deseja cancelar:");
-
-        for (int i = 0; i < futureAppointments.size(); i++) {
-            Appointment app = futureAppointments.get(i);
-            System.out.println((i + 1) + " - " + app.getFormattedDateTime() + " (Médico: " + getDoctorName(app.getDoctorCRM()) + ")");
-        }
-
-        System.out.print("\nDigite o número da consulta (0 para voltar): ");
-        int selection = Integer.parseInt(scanner.nextLine()) - 1;
-
-        if (selection == -1) {
-            return;
-        }
-
-        if (selection < 0 || selection >= futureAppointments.size()) {
-            System.out.println("Seleção inválida.");
-            return;
-        }
-
-        Appointment selectedAppointment = futureAppointments.get(selection);
-
-        System.out.println("\nTem certeza que deseja cancelar a consulta em " +
-                selectedAppointment.getFormattedDateTime() + "? (s/n): ");
-        String confirm = scanner.nextLine();
-
-        if (confirm.equalsIgnoreCase("s")) {
-            doCancelAppointment(selectedAppointment, allAppointments);
-        }
-    }
-
-    /**
-     * Executa o cancelamento de uma consulta
-     *
-     * @param appointment Consulta a ser cancelada
-     * @param allAppointments Todas as consultas
-     */
-    private static void doCancelAppointment(Appointment appointment, List<Appointment> allAppointments) {
-        try {
-            // Encontrar e atualizar a consulta na lista
-            for (Appointment app : allAppointments) {
-                if (app.getDate().equals(appointment.getDate()) &&
-                        app.getTime().equals(appointment.getTime()) &&
-                        app.getPatientCPF().equals(appointment.getPatientCPF()) &&
-                        app.getDoctorCRM().equals(appointment.getDoctorCRM())) {
-
-                    app.setStatus(AppointmentStatus.CANCELLED);
-                    break;
-                }
-            }
-
-            // Atualizar o status na lista do paciente
-            appointment.setStatus(AppointmentStatus.CANCELLED);
-
-            // Salvar a lista atualizada
-            Appointment.saveAppointmentsToCSV(allAppointments, APPOINTMENT_CSV);
-
-            System.out.println("Consulta cancelada com sucesso!");
-
-        } catch (Exception e) {
-            System.err.println("Erro: " + e.getMessage());
-            e.printStackTrace(System.err);
-
-        }
-    }
-
-    /**
-     * Obtém o nome do médico a partir do CRM
-     *
-     * @param crm CRM do médico
-     * @return Nome do médico ou "CRM não encontrado" se não encontrado
-     */
-    private static String getDoctorName(String crm) {
-        try {
-            List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
-
-            for (Doctor doctor : doctors) {
-                if (doctor.getCode().equals(crm)) {
-                    return doctor.getName();
-                }
-            }
-
-            return "CRM " + crm + " (Médico não encontrado)";
-        } catch (Exception e) {
-            return "Erro ao buscar médico: " + e.getMessage();
-        }
+        System.out.println("Paciente cadastrado com sucesso!");
+        return new Patient(name, cpf);
     }
 }

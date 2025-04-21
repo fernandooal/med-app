@@ -33,7 +33,7 @@ public class Main {
                     System.out.println("3 - Sou Médico");
                     System.out.println("0 - Sair");
                     option = scanner.nextInt();
-
+                    scanner.nextLine();
                     switch (option) {
                         case 1:
                             AdminView.checkOptions(doctors, patients, appointments,true, scanner);

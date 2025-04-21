@@ -33,6 +33,16 @@ public class Doctor {
         this.code = code;
     }
 
+    /**
+     * Valida se um CRM tem o formato correto
+     *
+     * @param crm CRM a validar
+     * @return true se o CRM é válido, false caso contrário
+     */
+    public static boolean isValidCRM(String crm) {
+        return crm != null && crm.matches("\\d+");
+    }
+
     // Método para carregar lista de médicos do CSV
     public static List<Doctor> loadFromCSV(String filename) {
         List<Doctor> doctors = new ArrayList<>();

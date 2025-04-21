@@ -3,12 +3,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
+/**
+ * Classe que representa um paciente no sistema.
+ * Armazena informações como nome, CPF e a lista de consultas do paciente.
+ */
 public class Patient {
 
-    private String name;
-    private String cpf;
-    private List<Appointment> appointmentList;
+    private final String name;
+    private final String cpf;
+    private final List<Appointment> appointmentList;
 
+
+    /**
+     * Construtor completo de um paciente
+     *
+     * @param name Nome do paciente
+     * @param cpf CPF do paciente
+     * @param appointmentList Lista de consultas do paciente
+     */
     public Patient(String name, String cpf, List<Appointment> appointmentList)
     {
         this.name = name;
@@ -16,37 +28,74 @@ public class Patient {
         this.appointmentList = appointmentList;
     }
 
+    /**
+     * Construtor simplificado de um paciente, inicializa a lista de consultas vazia
+     *
+     * @param name Nome do paciente
+     * @param cpf CPF do paciente
+     */
     public Patient(String name, String cpf){
         this.name = name;
         this.cpf = cpf;
         this.appointmentList = new ArrayList<>();
     }
 
+    /**
+     * Retorna o nome do paciente
+     *
+     * @return Nome do paciente
+     */
     public String getName()
     {
         return name;
     }
-    public void setName(String name)
-    {
-        this.name = name;
-    }
+
+    /**
+     * Retorna o CPF do paciente
+     *
+     * @return CPF do paciente
+     */
     public String getCpf()
     {
         return cpf;
     }
-    public void setCpf(String cpf)
-    {
-        this.cpf = cpf;
-    }
+
+    /**
+     * Retorna a lista de consultas do paciente
+     *
+     * @return Lista de consultas
+     */
     public List<Appointment> getAppointmentList()
     {
         return appointmentList;
     }
+
+    /**
+     * Adiciona uma consulta à lista do paciente
+     *
+     * @param appointment Consulta a ser adicionada
+     */
     public void addAppointment(Appointment appointment)
     {
         this.appointmentList.add(appointment);
     }
 
+    /**
+     * Valida se um CPF tem o formato correto
+     *
+     * @param cpf CPF a validar
+     * @return true se o CPF é válido, false caso contrário
+     */
+    public static boolean isValidCPF(String cpf) {
+        return cpf != null && cpf.matches("\\d{11}");
+    }
+
+    /**
+     * Carrega pacientes a partir de um arquivo CSV
+     *
+     * @param filename Nome do arquivo CSV
+     * @return Lista de pacientes carregados
+     */
     public static List<Patient> loadFromCSV(String filename) {
         List<Patient> patients = new ArrayList<>();
 
@@ -76,5 +125,15 @@ public class Patient {
         }
 
         return patients;
+    }
+
+    /**
+     * Representação em string do paciente
+     *
+     * @return String representando o paciente
+     */
+    @Override
+    public String toString() {
+        return "Paciente: " + name + " (CPF: " + UIUtils.formatCPF(cpf) + ")";
     }
 }

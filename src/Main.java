@@ -1,80 +1,93 @@
 import java.util.List;
 import java.util.Scanner;
-import java.util.Map;
-import java.util.HashMap;
 
+/**
+ * Classe principal do sistema de gerenciamento de clínica médica.
+ * Responsável por inicializar a aplicação, carregar os dados e direcionar
+ * para as interfaces específicas.
+ */
 public class Main {
+    /**
+     * Método principal de entrada do programa
+     *
+     * @param args Argumentos de linha de comando (não utilizados)
+     */
     public static void main(String[] args) {
         // Criamos apenas um scanner para toda a aplicação
-        Scanner scanner = new Scanner(System.in);
 
-        System.out.println("Bem-vindo ao seu aplicativo de gerenciamento de clínica!\n");
+        try (Scanner scanner = new Scanner(System.in)) {
+            System.out.println("Bem-vindo ao seu aplicativo de gerenciamento de clínica!\n");
 
-        try {
             // Carregamento dos dados
             List<Doctor> doctors = Doctor.loadFromCSV("doctors_clean.csv");
             List<Patient> patients = Patient.loadFromCSV("patients.csv");
             List<Appointment> appointments = Appointment.loadFromCSV("appointments.csv");
             associateAppointmentsToPatients(patients, appointments);
 
-            // Mapeamento de médicos para acesso eficiente
-            Map<String, Doctor> doctorMap = new HashMap<>();
-            for (Doctor doctor : doctors) {
-                doctorMap.put(doctor.getCode(), doctor);
-            }
-
             int option = 0;
             while (option != -1) {
                 try {
                     System.out.println("\nQual painel você gostaria de acessar?");
-                    System.out.println("0 - Administrador");
-                    System.out.println("1 - Paciente");
-                    System.out.println("2 - Médico");
-                    System.out.println("-1 - Sair");
+                    System.out.println("1 - Administrador");
+                    System.out.println("2 - Sou Paciente");
+                    System.out.println("3 - Sou Médico");
+                    System.out.println("0 - Sair");
 
                     String input = scanner.nextLine();
                     option = Integer.parseInt(input);
 
                     switch (option) {
-                        case 0:
-                            // AdminView já aceita scanner como parâmetro
-                            AdminView.checkOptions(true, scanner);
-                            break;
                         case 1:
-                            // PatientView já aceita scanner como parâmetro
-                            PatientView.checkOptions(patients, true, scanner);
+                            AdminView.checkOptions(true, scanner);
+                            patients = Patient.loadFromCSV("patients.csv");
+                            doctors = Doctor.loadFromCSV("doctors_clean.csv");
+                            appointments = Appointment.loadFromCSV("appointments.csv");
+                            associateAppointmentsToPatients(patients, appointments);
                             break;
                         case 2:
-                            // Passando o scanner para DoctorView
+                            PatientView.checkOptions(patients, true, scanner);
+                            appointments = Appointment.loadFromCSV("appointments.csv");
+                            associateAppointmentsToPatients(patients, appointments);
+                            break;
+                        case 3:
                             DoctorView.checkOptions(doctors, appointments, patients, true, scanner);
                             break;
-                        case -1:
+                        case 0:
                             System.out.println("Encerrando o sistema...");
+                            option = -1;
                             break;
                         default:
                             System.out.println("Opção inválida!");
-                            break;
                     }
                 } catch (NumberFormatException e) {
                     System.out.println("Entrada inválida. Por favor, digite um número.");
                 } catch (Exception e) {
-                    System.out.println("Erro inesperado: " + e.getMessage());
-                    // Imprimir stack trace para facilitar a depuração
-                    e.printStackTrace();
+                    System.err.println("Erro inesperado:");
+                    e.printStackTrace(System.err);
                 }
             }
         } catch (Exception e) {
-            System.out.println("Erro fatal ao inicializar a aplicação: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            // Fechar o scanner somente ao final do programa
-            scanner.close();
+            System.err.println("Erro fatal ao inicializar a aplicação: " + e.getMessage());
+            e.printStackTrace(System.err);
         }
+
 
         System.out.println("\nAté a próxima! =)");
     }
 
+    /**
+     * Associa as consultas aos seus respectivos pacientes
+     *
+     * @param patients Lista de pacientes
+     * @param appointments Lista de consultas
+     */
     public static void associateAppointmentsToPatients(List<Patient> patients, List<Appointment> appointments) {
+        // Limpar listas de consultas existentes para evitar duplicatas
+        for (Patient patient : patients) {
+            patient.getAppointmentList().clear();
+        }
+
+        // Associar cada consulta ao paciente correspondente
         for (Appointment appointment : appointments) {
             for (Patient patient : patients) {
                 if (patient.getCpf().equals(appointment.getPatientCPF())) {

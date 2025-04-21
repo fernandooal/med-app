@@ -29,22 +29,22 @@ public class AdminView {
      * @param login Flag para controle do loop de autenticação
      * @param scanner Scanner para leitura de entrada do usuário
      */
-    public static void checkOptions(boolean login, Scanner scanner) {
+    public static void checkOptions(List<Doctor> doctors, List<Patient> patients, List<Appointment> appointments, boolean login, Scanner scanner) {
         int option = -1;
         while (login) {
             try {
                 System.out.println("\nSelecione a opção desejada: ");
                 System.out.println("0 - Voltar");
                 System.out.println("1 - Login");
-                option = Integer.parseInt(scanner.nextLine());
-
+                option = scanner.nextInt();
+                scanner.nextLine();
                 switch (option) {
                     case 0: login = false; break;
                     case 1:
                         boolean admin = login(scanner);
                         if (admin) {
                             System.out.println("\nLogin efetuado com sucesso!");
-                            menu(scanner);
+                            menu(doctors, patients, appointments, scanner);
                             login = false;
                         } else {
                             System.out.println("Login ou senha incorreta.");
@@ -91,7 +91,7 @@ public class AdminView {
      *
      * @param scanner Scanner para leitura de entrada do usuário
      */
-    private static void menu(Scanner scanner) {
+    private static void menu(List<Doctor> doctors, List<Patient> patients, List<Appointment> appointments, Scanner scanner) {
         int option = 1;
         while (option != 0) {
             try {
@@ -100,13 +100,17 @@ public class AdminView {
                 System.out.println("1 - Gerenciar Médicos");
                 System.out.println("2 - Gerenciar Pacientes");
                 System.out.println("3 - Gerenciar Consultas");
-                option = Integer.parseInt(scanner.nextLine());
-
+                option = scanner.nextInt();
+                scanner.nextLine();
                 switch (option) {
                     case 0: break;
-                    case 1: manageDoctors(scanner); break;
-                    case 2: managePatients(scanner); break;
-                    case 3: manageAppointments(scanner); break;
+                    case 1: manageDoctors(doctors, scanner); break;
+                    case 2:
+                        managePatients(patients, scanner);
+                        appointments.clear();
+                        appointments.addAll(Appointment.loadFromCSV(APPOINTMENT_CSV));
+                        break;
+                    case 3: manageAppointments(appointments, patients, scanner); break;
                     default: System.out.println("Opção inválida."); break;
                 }
             } catch (NumberFormatException e) {
@@ -115,23 +119,31 @@ public class AdminView {
         }
     }
 
-    private static void manageDoctors(Scanner scanner) {
+    private static void manageDoctors(List<Doctor> doctors, Scanner scanner) {
         System.out.println("\n1 - Cadastrar Médico");
         System.out.println("2 - Excluir Médico");
         System.out.println("3 - Corrigir Médico");
         System.out.println("4 - Ver Médicos Cadastrados");
         System.out.println("5 - Reintegrar Médico");
         System.out.println("0 - Voltar");
-        int option = Integer.parseInt(scanner.nextLine());
-
+        int option = scanner.nextInt();
+        scanner.nextLine();
+        boolean doctorsUpdated = false;
         switch (option) {
             case 1: registerDoctor(scanner); break;
-            case 2: deleteDoctor(scanner); break;
-            case 3: editDoctor(scanner); break;
-            case 4: listDoctors(); break;
-            case 5: reintegrateDoctor(scanner); break;
+            case 2: deleteDoctor(doctors, scanner); break;
+            case 3: editDoctor(doctors, scanner); doctorsUpdated = true; break;
+            case 4: listDoctors(doctors); break;
+            case 5: reintegrateDoctor(doctors, scanner); break;
             case 0: return;
             default: System.out.println("Opção inválida.");
+        }
+
+        if(doctorsUpdated) {
+            doctors.clear();
+            doctors.addAll(Doctor.loadFromCSV(DOCTOR_CSV));
+        } else{
+            updateDoctorsFromCSV(doctors, DOCTOR_CSV);
         }
     }
 
@@ -146,19 +158,13 @@ public class AdminView {
         String doctorCode = scanner.nextLine();
 
         saveToCSV(DOCTOR_CSV, doctorName, doctorCode);
-
-        // Atualiza a lista de médicos se estiver carregada
-        List<Doctor> updatedDoctors = Doctor.loadFromCSV(DOCTOR_CSV);
-        updateDoctorsFromCSV(updatedDoctors, DOCTOR_CSV);
     }
 
-    private static void deleteDoctor(Scanner scanner) {
+    private static void deleteDoctor(List<Doctor> doctors, Scanner scanner) {
         System.out.print("Digite o CRM do médico a ser marcado como removido: ");
         String crm = scanner.nextLine().trim();
 
-        List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
         boolean found = false;
-
         for (Doctor d : doctors) {
             if (d.getCode().equals(crm)) {
                 if (!d.getName().contains("(Removido)")) {
@@ -184,13 +190,11 @@ public class AdminView {
         }
     }
 
-    private static void editDoctor(Scanner scanner) {
+    private static void editDoctor(List<Doctor> doctors, Scanner scanner) {
         System.out.print("Digite o CRM do médico a ser corrigido: ");
         String crm = scanner.nextLine().trim();
 
-        List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
         boolean found = false;
-
         for (Doctor d : doctors) {
             if (d.getCode().equals(crm)) {
                 System.out.print("Digite o novo nome do médico: ");
@@ -216,9 +220,7 @@ public class AdminView {
         }
     }
 
-    private static void listDoctors() {
-        List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
-
+    private static void listDoctors(List<Doctor> doctors) {
         if (doctors.isEmpty()) {
             System.out.println("\nNenhum médico cadastrado.");
             return;
@@ -234,13 +236,11 @@ public class AdminView {
         }
     }
 
-    private static void reintegrateDoctor(Scanner scanner) {
+    private static void reintegrateDoctor(List<Doctor> doctors, Scanner scanner) {
         System.out.print("Digite o CRM do médico a ser reintegrado: ");
         String crm = scanner.nextLine().trim();
 
-        List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
         boolean found = false;
-
         for (Doctor d : doctors) {
             if (d.getCode().equals(crm) && d.getName().contains("(Removido)")) {
                 d.setName(d.getName().replace(" (Removido)", "").trim());
@@ -265,29 +265,58 @@ public class AdminView {
     }
 
 
-    private static void managePatients(Scanner scanner) {
+    private static void managePatients(List<Patient> patients, Scanner scanner) {
         System.out.println("\n1 - Cadastrar Paciente");
         System.out.println("2 - Excluir Paciente");
         System.out.println("3 - Corrigir Paciente");
         System.out.println("0 - Voltar");
-        int option = Integer.parseInt(scanner.nextLine());
-
+        int option = scanner.nextInt();
+        scanner.nextLine();
+        boolean patientEdited = false;
         switch (option) {
             case 1: registerPatient(scanner); break;
-            case 2: deletePatient(scanner); break;
-            case 3: editPatient(scanner); break;
+            case 2: deletePatient(patients, scanner); break;
+            case 3: editPatient(patients, scanner); patientEdited = true; break;
             case 0: return;
             default: System.out.println("Opção inválida.");
         }
+
+        if(patientEdited) {
+            patients.clear();
+            patients.addAll(Patient.loadFromCSV(PATIENT_CSV));
+        } else {
+            updatePatientsFromCSV(patients, PATIENT_CSV);
+        }
     }
 
-    private static void deletePatient(Scanner scanner) {
+    /**
+     * Cadastra um novo paciente no sistema
+     *
+     * @param scanner Scanner para leitura de entrada do usuário
+     */
+    private static void registerPatient(Scanner scanner) {
+        System.out.println("Digite o nome do paciente: ");
+        String patientName = scanner.nextLine();
+        System.out.println("Digite o CPF do paciente: ");
+        String patientCPF = scanner.nextLine();
+
+        if (!patientCPF.matches("\\d{11}")) {
+            System.out.println("CPF inválido.");
+            return;
+        }
+
+        saveToCSV(PATIENT_CSV, patientName, patientCPF);
+
+        Patient newPatient = new Patient(patientName, patientCPF);
+        offerScheduleAppointment(newPatient, scanner);
+    }
+
+
+    private static void deletePatient(List<Patient> patients, Scanner scanner) {
         System.out.print("Digite o CPF do paciente a ser excluído: ");
         String cpf = scanner.nextLine().trim();
 
-        List<Patient> patients = Patient.loadFromCSV(PATIENT_CSV);
         boolean removed = patients.removeIf(p -> p.getCpf().equals(cpf));
-
         if (removed) {
             try (PrintWriter writer = new PrintWriter(new FileWriter(PATIENT_CSV))) {
                 writer.println("Nome,CPF");
@@ -303,13 +332,11 @@ public class AdminView {
         }
     }
 
-    private static void editPatient(Scanner scanner) {
+    private static void editPatient(List<Patient> patients, Scanner scanner) {
         System.out.print("Digite o CPF do paciente a ser corrigido: ");
         String cpf = scanner.nextLine().trim();
 
-        List<Patient> patients = Patient.loadFromCSV(PATIENT_CSV);
         boolean found = false;
-
         for (Patient p : patients) {
             if (p.getCpf().equals(cpf)) {
                 System.out.print("Digite o novo nome do paciente: ");
@@ -336,40 +363,6 @@ public class AdminView {
     }
 
     /**
-     * Cadastra um novo paciente no sistema
-     *
-     * @param scanner Scanner para leitura de entrada do usuário
-     */
-    private static Patient registerPatient(Scanner scanner) {
-        System.out.println("Digite o nome do paciente: ");
-        String patientName = scanner.nextLine();
-        System.out.println("Digite o CPF do paciente: ");
-        String patientCPF = scanner.nextLine();
-
-        if (!patientCPF.matches("\\d{11}")) {
-            System.out.println("CPF inválido.");
-            return null;
-        }
-
-        saveToCSV(PATIENT_CSV, patientName, patientCPF);
-
-        // Atualiza a lista de pacientes carregados
-        List<Patient> updatedPatients = Patient.loadFromCSV(PATIENT_CSV);
-        updatePatientsFromCSV(updatedPatients, PATIENT_CSV);
-
-        Patient newPatient = new Patient(patientName, patientCPF);
-
-        // ✅ CHAMADA ADICIONADA AQUI
-        offerScheduleAppointment(newPatient, scanner);
-
-        return newPatient;
-    }
-
-
-
-
-
-    /**
      * Oferece a opção de agendar uma consulta após o cadastro de um paciente
      *
      * @param patient Paciente recém-cadastrado
@@ -392,7 +385,6 @@ public class AdminView {
      */
     private static void scheduleAppointment(Patient patient, Scanner scanner) {
         try {
-            // Carregar a lista de médicos
             List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
 
             if (doctors.isEmpty()) {
@@ -480,7 +472,7 @@ public class AdminView {
      *
      * @param scanner Scanner para leitura de entrada do usuário
      */
-    private static void manageAppointments(Scanner scanner) {
+    private static void manageAppointments(List<Appointment> appointments, List<Patient> patients, Scanner scanner) {
         try {
             System.out.print("Informe o CPF do paciente: ");
             String cpf = scanner.nextLine().trim();
@@ -490,10 +482,7 @@ public class AdminView {
                 return;
             }
 
-            // Carregar pacientes para verificar se o CPF existe
-            List<Patient> patients = Patient.loadFromCSV(PATIENT_CSV);
             Patient patient = null;
-
             for (Patient p : patients) {
                 if (p.getCpf().equals(cpf)) {
                     patient = p;
@@ -505,9 +494,6 @@ public class AdminView {
                 System.out.println("Paciente não encontrado.");
                 return;
             }
-
-            // Carregar todas as consultas
-            List<Appointment> appointments = Appointment.loadFromCSV(APPOINTMENT_CSV);
 
             // Filtrar consultas futuras do paciente
             List<Appointment> futureAppointments = new ArrayList<>();
@@ -533,7 +519,7 @@ public class AdminView {
             }
 
             System.out.print("\nDigite o número da consulta que deseja gerenciar (0 para voltar): ");
-            int selection = Integer.parseInt(scanner.nextLine());
+            int selection = scanner.nextInt();
 
             if (selection == 0) {
                 return;
@@ -551,8 +537,8 @@ public class AdminView {
             System.out.println("2 - Alterar data/hora");
             System.out.println("0 - Voltar");
 
-            int action = Integer.parseInt(scanner.nextLine());
-
+            int action = scanner.nextInt();
+            scanner.nextLine();
             switch (action) {
                 case 0:
                     return;
@@ -566,6 +552,8 @@ public class AdminView {
                     System.out.println("Opção inválida.");
             }
 
+            appointments.clear();
+            appointments.addAll(Appointment.loadFromCSV(APPOINTMENT_CSV));
         } catch (NumberFormatException e) {
             System.out.println("Entrada inválida. Digite um número.");
         } catch (Exception e) {

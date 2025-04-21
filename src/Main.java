@@ -32,21 +32,15 @@ public class Main {
                     System.out.println("2 - Sou Paciente");
                     System.out.println("3 - Sou Médico");
                     System.out.println("0 - Sair");
-
-                    String input = scanner.nextLine();
-                    option = Integer.parseInt(input);
+                    option = scanner.nextInt();
 
                     switch (option) {
                         case 1:
-                            AdminView.checkOptions(true, scanner);
-                            patients = Patient.loadFromCSV("patients.csv");
-                            doctors = Doctor.loadFromCSV("doctors_clean.csv");
-                            appointments = Appointment.loadFromCSV("appointments.csv");
+                            AdminView.checkOptions(doctors, patients, appointments,true, scanner);
                             associateAppointmentsToPatients(patients, appointments);
                             break;
                         case 2:
                             PatientView.checkOptions(patients, true, scanner);
-                            appointments = Appointment.loadFromCSV("appointments.csv");
                             associateAppointmentsToPatients(patients, appointments);
                             break;
                         case 3:

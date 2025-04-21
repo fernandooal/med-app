@@ -19,7 +19,7 @@ public class Appointment {
     private final LocalTime time;
     private final String patientCPF;
     private final String doctorCRM;
-    private AppointmentStatus status; // Novo atributo para status
+    private AppointmentStatus status;
 
     private static final String APPOINTMENT_CSV = "appointments.csv";
     private static final String DOCTOR_CSV = "doctors_clean.csv";
@@ -37,7 +37,7 @@ public class Appointment {
         this.time = time;
         this.patientCPF = patientCPF;
         this.doctorCRM = doctorCRM;
-        // Define o status inicial com base na data
+        // Define o status inicial com base na data e hora
         this.status = LocalDateTime.of(date, time).isBefore(LocalDateTime.now())
                 ? AppointmentStatus.COMPLETED
                 : AppointmentStatus.PENDING;
@@ -111,6 +111,12 @@ public class Appointment {
         return date.format(dateFormatter) + " às " + time.format(timeFormatter);
     }
 
+    /**
+     * Retorna uma representação de string de consulta.
+     *
+     * @return Uma string formatada contendo a data e hora da consulta,
+     *         CPF do paciente, CRM do médico e status da consulta.
+     */
     @Override
     public String toString() {
         return "Consulta em " + getFormattedDateTime() +
@@ -152,7 +158,7 @@ public class Appointment {
         }
     }
 
-    // Getters
+    // Getters gerais
 
     public LocalDate getDate() {
         return date;
@@ -170,6 +176,7 @@ public class Appointment {
         return doctorCRM;
     }
 
+    // Getter e Setter para Status das Consultas
     public AppointmentStatus getStatus() {
         return status;
     }
@@ -250,15 +257,17 @@ public class Appointment {
         List<Appointment> appointments = new ArrayList<>();
 
         try (Scanner scanner = new Scanner(new File(filename))) {
-            if (scanner.hasNextLine()) scanner.nextLine(); // pula cabeçalho
+            if (scanner.hasNextLine()) {
+                scanner.nextLine();
+            }
 
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine().trim();
                 if (line.isEmpty()) continue;
 
-                Appointment ap = parseLine(line);
-                if (ap != null) {
-                    appointments.add(ap);
+                Appointment appointment = parseLine(line);
+                if (appointment != null) {
+                    appointments.add(appointment);
                 }
             }
         } catch (IOException e) {
@@ -289,10 +298,10 @@ public class Appointment {
      * Agenda uma nova consulta para um paciente
      *
      * @param patient Paciente que está agendando a consulta
-     * @param allAppointments Todas as consultas
+     * @param appointments Todas as consultas
      * @param scanner Scanner para leitura
      */
-    public static void scheduleNewAppointment(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
+    public static void scheduleNewAppointment(Patient patient, List<Appointment> appointments, Scanner scanner) {
         try {
             // Carregar a lista de médicos
             List<Doctor> doctors = Doctor.loadFromCSV(DOCTOR_CSV);
@@ -340,11 +349,11 @@ public class Appointment {
 
             // Verificar se já existe consulta no mesmo horário para o médico
             boolean conflictFound = false;
-            for (Appointment app : allAppointments) {
-                if (app.getDoctorCRM().equals(selectedDoctor.getCode()) &&
-                        app.getDate().equals(appointmentDate) &&
-                        app.getTime().equals(appointmentTime) &&
-                        app.getStatus() == AppointmentStatus.PENDING) {
+            for (Appointment appointment : appointments) {
+                if (appointment.getDoctorCRM().equals(selectedDoctor.getCode()) &&
+                        appointment.getDate().equals(appointmentDate) &&
+                        appointment.getTime().equals(appointmentTime) &&
+                        appointment.getStatus() == AppointmentStatus.PENDING) {
                     conflictFound = true;
                     break;
                 }
@@ -370,7 +379,7 @@ public class Appointment {
             patient.addAppointment(appointment);
 
             // Adicionar a consulta à lista geral
-            allAppointments.add(appointment);
+            appointments.add(appointment);
 
             System.out.println("\nConsulta agendada com sucesso!");
             System.out.println("Médico: " + selectedDoctor.getName());
@@ -388,16 +397,16 @@ public class Appointment {
      * Exibe as consultas futuras (agendadas) do paciente com opções de gerenciamento
      *
      * @param patient Paciente
-     * @param allAppointments Todas as consultas
+     * @param appointments Todas as consultas
      * @param scanner Scanner para leitura
      */
-    public static void viewFutureAppointments(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
+    public static void viewFutureAppointments(Patient patient, List<Appointment> appointments, Scanner scanner) {
         List<Appointment> futureAppointments = new ArrayList<>();
 
         // Filtrar consultas pendentes (futuras)
-        for (Appointment app : patient.getAppointmentList()) {
-            if (app.getStatus() == AppointmentStatus.PENDING) {
-                futureAppointments.add(app);
+        for (Appointment appointment : patient.getAppointmentList()) {
+            if (appointment.getStatus() == AppointmentStatus.PENDING) {
+                futureAppointments.add(appointment);
             }
         }
 
@@ -413,8 +422,9 @@ public class Appointment {
         System.out.println("\nSuas consultas agendadas:");
 
         for (int i = 0; i < futureAppointments.size(); i++) {
-            Appointment app = futureAppointments.get(i);
-            System.out.println((i + 1) + " - " + app.getFormattedDateTime() + " (Médico: " + DoctorView.getDoctorName(app.getDoctorCRM()) + ")");
+            Appointment appointment = futureAppointments.get(i);
+            System.out.println((i + 1) + " - " + appointment.getFormattedDateTime() + " (Médico: "
+                            + DoctorView.getDoctorName(appointment.getDoctorCRM()) + ")");
         }
 
         System.out.println("\nDeseja gerenciar alguma consulta? (s/n): ");
@@ -443,13 +453,14 @@ public class Appointment {
                 case 0:
                     return;
                 case 1:
-                    System.out.println("Presença confirmada para a consulta em " + selectedAppointment.getFormattedDateTime());
+                    System.out.println("Presença confirmada para a consulta em "
+                            + selectedAppointment.getFormattedDateTime());
                     break;
                 case 2:
-                    cancelAppointment(selectedAppointment, allAppointments);
+                    cancelAppointment(selectedAppointment, appointments);
                     break;
                 case 3:
-                    rescheduleAppointment(selectedAppointment, patient, allAppointments, scanner);
+                    rescheduleAppointment(selectedAppointment, patient, appointments, scanner);
                     break;
                 default:
                     System.out.println("Opção inválida.");
@@ -467,10 +478,10 @@ public class Appointment {
         List<Appointment> pastAppointments = new ArrayList<>();
 
         // Filtrar consultas realizadas
-        for (Appointment app : patient.getAppointmentList()) {
-            if (app.getStatus() == AppointmentStatus.COMPLETED ||
-                    (app.hasOccurred() && app.getStatus() != AppointmentStatus.CANCELLED)) {
-                pastAppointments.add(app);
+        for (Appointment appointment : patient.getAppointmentList()) {
+            if (appointment.getStatus() == AppointmentStatus.COMPLETED ||
+                    (appointment.hasOccurred() && appointment.getStatus() != AppointmentStatus.CANCELLED)) {
+                pastAppointments.add(appointment);
             }
         }
 
@@ -491,16 +502,16 @@ public class Appointment {
      * Interface para remarcar uma consulta existente
      *
      * @param patient Paciente
-     * @param allAppointments Todas as consultas
+     * @param appointments Todas as consultas
      * @param scanner Scanner para leitura
      */
-    public static void rescheduleAppointment(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
+    public static void rescheduleAppointment(Patient patient, List<Appointment> appointments, Scanner scanner) {
         List<Appointment> futureAppointments = new ArrayList<>();
 
         // Filtrar consultas pendentes (futuras)
-        for (Appointment app : patient.getAppointmentList()) {
-            if (app.getStatus() == AppointmentStatus.PENDING) {
-                futureAppointments.add(app);
+        for (Appointment appointment : patient.getAppointmentList()) {
+            if (appointment.getStatus() == AppointmentStatus.PENDING) {
+                futureAppointments.add(appointment);
             }
         }
 
@@ -516,8 +527,9 @@ public class Appointment {
         System.out.println("\nSelecione a consulta que deseja remarcar:");
 
         for (int i = 0; i < futureAppointments.size(); i++) {
-            Appointment app = futureAppointments.get(i);
-            System.out.println((i + 1) + " - " + app.getFormattedDateTime() + " (Médico: " + DoctorView.getDoctorName(app.getDoctorCRM()) + ")");
+            Appointment appointment = futureAppointments.get(i);
+            System.out.println((i + 1) + " - " + appointment.getFormattedDateTime() + " (Médico: "
+                    + DoctorView.getDoctorName(appointment.getDoctorCRM()) + ")");
         }
 
         System.out.print("\nDigite o número da consulta (0 para voltar): ");
@@ -533,18 +545,19 @@ public class Appointment {
         }
 
         Appointment selectedAppointment = futureAppointments.get(selection);
-        rescheduleAppointment(selectedAppointment, patient, allAppointments, scanner);
+        rescheduleAppointment(selectedAppointment, patient, appointments, scanner);
     }
 
     /**
      * Executa a remarcação de uma consulta
      *
-     * @param appointment Consulta a ser remarcada
+     * @param currentAppointment Consulta a ser remarcada
      * @param patient Paciente dono da consulta
-     * @param allAppointments Todas as consultas
+     * @param appointments Todas as consultas
      * @param scanner Scanner para leitura
      */
-    public static void rescheduleAppointment(Appointment appointment, Patient patient, List<Appointment> allAppointments, Scanner scanner) {
+    public static void rescheduleAppointment(Appointment currentAppointment, Patient patient,
+                                             List<Appointment> appointments, Scanner scanner) {
         try {
             // Obter nova data
             System.out.print("Digite a nova data da consulta (yyyy-MM-dd): ");
@@ -568,12 +581,12 @@ public class Appointment {
 
             // Verificar se já existe consulta no mesmo horário para o médico
             boolean conflictFound = false;
-            for (Appointment app : allAppointments) {
-                if (app != appointment &&
-                        app.getDoctorCRM().equals(appointment.getDoctorCRM()) &&
-                        app.getDate().equals(newDate) &&
-                        app.getTime().equals(newTime) &&
-                        app.getStatus() == AppointmentStatus.PENDING) {
+            for (Appointment existingAppointment : appointments) {
+                if (existingAppointment != currentAppointment &&
+                        existingAppointment.getDoctorCRM().equals(currentAppointment.getDoctorCRM()) &&
+                        existingAppointment.getDate().equals(newDate) &&
+                        existingAppointment.getTime().equals(newTime) &&
+                        existingAppointment.getStatus() == AppointmentStatus.PENDING) {
                     conflictFound = true;
                     break;
                 }
@@ -586,12 +599,12 @@ public class Appointment {
 
             // Remover a consulta antiga
             int indexToRemove = -1;
-            for (int i = 0; i < allAppointments.size(); i++) {
-                Appointment app = allAppointments.get(i);
-                if (app.getDate().equals(appointment.getDate()) &&
-                        app.getTime().equals(appointment.getTime()) &&
-                        app.getPatientCPF().equals(appointment.getPatientCPF()) &&
-                        app.getDoctorCRM().equals(appointment.getDoctorCRM())) {
+            for (int i = 0; i < appointments.size(); i++) {
+                Appointment existingAppointment = appointments.get(i);
+                if (existingAppointment.getDate().equals(currentAppointment.getDate()) &&
+                        existingAppointment.getTime().equals(currentAppointment.getTime()) &&
+                        existingAppointment.getPatientCPF().equals(currentAppointment.getPatientCPF()) &&
+                        existingAppointment.getDoctorCRM().equals(currentAppointment.getDoctorCRM())) {
 
                     indexToRemove = i;
                     break;
@@ -603,23 +616,23 @@ public class Appointment {
                 Appointment newAppointment = new Appointment(
                         newDate,
                         newTime,
-                        appointment.getPatientCPF(),
-                        appointment.getDoctorCRM(),
+                        currentAppointment.getPatientCPF(),
+                        currentAppointment.getDoctorCRM(),
                         AppointmentStatus.PENDING
                 );
 
                 // Substituir na lista geral
-                allAppointments.set(indexToRemove, newAppointment);
+                appointments.set(indexToRemove, newAppointment);
 
                 // Salvar a lista atualizada
-                Appointment.saveAppointmentsToCSV(allAppointments, APPOINTMENT_CSV);
+                Appointment.saveAppointmentsToCSV(appointments, APPOINTMENT_CSV);
 
                 // Substituir na lista do paciente
                 for (int i = 0; i < patient.getAppointmentList().size(); i++) {
-                    Appointment app = patient.getAppointmentList().get(i);
-                    if (app.getDate().equals(appointment.getDate()) &&
-                            app.getTime().equals(appointment.getTime()) &&
-                            app.getDoctorCRM().equals(appointment.getDoctorCRM())) {
+                    Appointment patientAppointment = patient.getAppointmentList().get(i);
+                    if (patientAppointment.getDate().equals(currentAppointment.getDate()) &&
+                            patientAppointment.getTime().equals(currentAppointment.getTime()) &&
+                            patientAppointment.getDoctorCRM().equals(currentAppointment.getDoctorCRM())) {
 
                         // Substituir na lista de consultas do paciente
                         patient.getAppointmentList().set(i, newAppointment);
@@ -645,16 +658,16 @@ public class Appointment {
      * Interface para cancelar uma consulta existente
      *
      * @param patient Paciente
-     * @param allAppointments Todas as consultas
+     * @param appointments Todas as consultas
      * @param scanner Scanner para leitura
      */
-    public static void cancelAppointment(Patient patient, List<Appointment> allAppointments, Scanner scanner) {
+    public static void cancelAppointment(Patient patient, List<Appointment> appointments, Scanner scanner) {
         List<Appointment> futureAppointments = new ArrayList<>();
 
         // Filtrar consultas pendentes (futuras)
-        for (Appointment app : patient.getAppointmentList()) {
-            if (app.getStatus() == AppointmentStatus.PENDING) {
-                futureAppointments.add(app);
+        for (Appointment appointment : patient.getAppointmentList()) {
+            if (appointment.getStatus() == AppointmentStatus.PENDING) {
+                futureAppointments.add(appointment);
             }
         }
 
@@ -670,8 +683,9 @@ public class Appointment {
         System.out.println("\nSelecione a consulta que deseja cancelar:");
 
         for (int i = 0; i < futureAppointments.size(); i++) {
-            Appointment app = futureAppointments.get(i);
-            System.out.println((i + 1) + " - " + app.getFormattedDateTime() + " (Médico: " + DoctorView.getDoctorName(app.getDoctorCRM()) + ")");
+            Appointment futureAppointment = futureAppointments.get(i);
+            System.out.println((i + 1) + " - " + futureAppointment.getFormattedDateTime() + " (Médico: "
+                    + DoctorView.getDoctorName(futureAppointment.getDoctorCRM()) + ")");
         }
 
         System.out.print("\nDigite o número da consulta (0 para voltar): ");
@@ -693,35 +707,35 @@ public class Appointment {
         String confirm = scanner.nextLine();
 
         if (confirm.equalsIgnoreCase("s")) {
-            cancelAppointment(selectedAppointment, allAppointments);
+            cancelAppointment(selectedAppointment, appointments);
         }
     }
 
     /**
      * Executa o cancelamento de uma consulta
      *
-     * @param appointment Consulta a ser cancelada
-     * @param allAppointments Todas as consultas
+     * @param currentAppointment Consulta a ser cancelada
+     * @param appointments Todas as consultas
      */
-    public static void cancelAppointment(Appointment appointment, List<Appointment> allAppointments) {
+    public static void cancelAppointment(Appointment currentAppointment, List<Appointment> appointments) {
         try {
             // Encontrar e atualizar a consulta na lista
-            for (Appointment app : allAppointments) {
-                if (app.getDate().equals(appointment.getDate()) &&
-                        app.getTime().equals(appointment.getTime()) &&
-                        app.getPatientCPF().equals(appointment.getPatientCPF()) &&
-                        app.getDoctorCRM().equals(appointment.getDoctorCRM())) {
+            for (Appointment existingAppointment : appointments) {
+                if (existingAppointment.getDate().equals(currentAppointment.getDate()) &&
+                        existingAppointment.getTime().equals(currentAppointment.getTime()) &&
+                        existingAppointment.getPatientCPF().equals(currentAppointment.getPatientCPF()) &&
+                        existingAppointment.getDoctorCRM().equals(currentAppointment.getDoctorCRM())) {
 
-                    app.setStatus(AppointmentStatus.CANCELLED);
+                    existingAppointment.setStatus(AppointmentStatus.CANCELLED);
                     break;
                 }
             }
 
             // Atualizar o status na lista do paciente
-            appointment.setStatus(AppointmentStatus.CANCELLED);
+            currentAppointment.setStatus(AppointmentStatus.CANCELLED);
 
             // Salvar a lista atualizada
-            Appointment.saveAppointmentsToCSV(allAppointments, APPOINTMENT_CSV);
+            Appointment.saveAppointmentsToCSV(appointments, APPOINTMENT_CSV);
 
             System.out.println("Consulta cancelada com sucesso!");
 
